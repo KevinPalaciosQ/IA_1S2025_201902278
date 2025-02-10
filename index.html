@@ -41,11 +41,30 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .code-button {
+            background-color: #00c4ff;
+            color: #121212;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background 0.3s ease-in-out;
+        }
+        .code-button:hover {
+            background-color: #0090c4;
+        }
     </style>
 </head>
 <body>
-    <h2>🤖 Simple Reflex Agent: Vacuum Cleaner</h2>
-    <p id="log">Initializing...</p>
+    <h2>🤖 Agente de Limpieza con Comportamiento Reflexivo 🧹</h2>
+    <p id="log">Inicializando...</p>
+    
+    <button class="code-button" onclick="window.open('script.js', '_blank')">
+        📜 Ver Código Fuente
+    </button>
+
     <script src="script.js"></script>
 </body>
 </html>

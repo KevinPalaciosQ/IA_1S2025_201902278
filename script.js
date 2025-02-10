@@ -1,83 +1,140 @@
-// Convierte el estado en una cadena única para comparaciones
-function encodeState(env) {
-    return `${env.position}|${env.roomA}|${env.roomB}`;
-}
-
-// Objeto para rastrear estados visitados
-let stateHistory = {};
-
-// Definimos el número total de estados posibles
-const MAX_STATES = 8;
-
-// Lógica del agente reflexivo
-function decideAction(position, condition) {
-    if (condition === "SUCIO") return "LIMPIO";
-    return position === "A" ? "DERECHA" : "IZQUIERDA";
-}
-
-// Función que ensucia una habitación con probabilidad controlada
-function mayDirtyRoom(env) {
-    const isBothClean = env.roomA === "LIMPIO" && env.roomB === "LIMPIO";
-    const chance = isBothClean ? 0.7 : 0.3;
-
-    if (Math.random() < chance) {
-        const roomToDirty = Math.random() < 0.5 ? "roomA" : "roomB";
-        if (env[roomToDirty] === "LIMPIO") {
-            env[roomToDirty] = "SUCIO";
-            document.getElementById("log").innerHTML += `<br><span style="color:red;">⚠️ Room ${roomToDirty === "roomA" ? "A" : "B"} is now SUCIO!</span>`;
-        }
-    }
-}
-
-// Ejecuta la simulación
-function runSimulation(env) {
-    let prevStateCount = Object.keys(stateHistory).length;
-    let currentState = encodeState(env);
-    stateHistory[currentState] = true;
-    
-    let newStateCount = Object.keys(stateHistory).length;
-
-    if (newStateCount > prevStateCount) {
-        document.getElementById("log").innerHTML += `<br><b>🌍 New state visited: ${currentState} (${newStateCount})</b>`;
+class VacuumWorld {
+    constructor() {
+        this.states = ["A", "SUCIO", "SUCIO"];
+        this.visitedStates = new Set();
+        this.TOTAL_STATES = 8;
+        this.logger = new Logger();
     }
 
-    let currentLocation = env.position;
-    let currentCondition = currentLocation === "A" ? env.roomA : env.roomB;
-    let action = decideAction(currentLocation, currentCondition);
-
-    document.getElementById("log").innerHTML += `<br>📌 Position: ${currentLocation} | Action: ${action} | Other Room: ${(currentLocation === "A" ? env.roomB : env.roomA)}`;
-
-    // Ejecuta la acción seleccionada
-    if (action === "LIMPIO") {
-        if (currentLocation === "A") env.roomA = "LIMPIO";
-        else env.roomB = "LIMPIO";
-    } else if (action === "DERECHA") {
-        env.position = "B";
-    } else if (action === "IZQUIERDA") {
-        env.position = "A";
+    getStateString() {
+        return this.states.join(',');
     }
 
-    // Si se mueve, hay posibilidad de ensuciar una habitación
-    if (action.includes("MOVIMIENTO")) {
-        mayDirtyRoom(env);
+    getCurrentRoomState() {
+        return this.states[0] === "A" ? this.states[1] : this.states[2];
     }
 
-    // Verifica si se visitaron todos los estados
-    if (newStateCount === MAX_STATES) {
-        document.getElementById("log").innerHTML += "<br>✅ All possible states have been visited!";
+    getOtherRoomState() {
+        return this.states[0] === "A" ? this.states[2] : this.states[1];
+    }
+
+    isComplete() {
+        return this.visitedStates.size === this.TOTAL_STATES && 
+               this.states[1] === "LIMPIO" && 
+               this.states[2] === "LIMPIO";
+    }
+
+    areBothRoomsClean() {
+        return this.states[1] === "LIMPIO" && this.states[2] === "LIMPIO";
+    }
+
+    registerState() {
+        const previousSize = this.visitedStates.size;
+        const currentState = this.getStateString();
+        this.visitedStates.add(currentState);
         
-        // Última limpieza si es necesario
-        if (env.roomA === "SUCIO" || env.roomB === "SUCIO") {
-            setTimeout(() => runSimulation(env), 2000);
-        } else {
-            document.getElementById("log").innerHTML += "<br>🏆 Cleaning completed!";
-            return;
+        if (this.visitedStates.size > previousSize) {
+            this.logger.logNewState(currentState, this.visitedStates.size);
         }
-    } else {
-        setTimeout(() => runSimulation(env), 2000);
     }
 }
 
-// Iniciar la simulación con un estado inicial
-let environment = { position: "A", roomA: "SUCIO", roomB: "SUCIO" };
-runSimulation(environment);
+class VacuumAgent {
+    determineAction(location, state) {
+        if (state === "SUCIO") return "LIMPIAR";
+        if (location === "A") return "DERECHA";
+        return "IZQUIERDA";
+    }
+
+    executeAction(action, world) {
+        switch(action) {
+            case "LIMPIAR":
+                if (world.states[0] === "A") {
+                    world.states[1] = "LIMPIO";
+                } else {
+                    world.states[2] = "LIMPIO";
+                }
+                break;
+            case "DERECHA":
+                world.states[0] = "B";
+                this.randomlyDirty(world);
+                break;
+            case "IZQUIERDA":
+                world.states[0] = "A";
+                this.randomlyDirty(world);
+                break;
+        }
+    }
+
+    randomlyDirty(world) {
+        const probability = world.areBothRoomsClean() ? 0.7 : 0.3;
+        
+        if (Math.random() < probability) {
+            const roomIndex = Math.random() < 0.5 ? 1 : 2;
+            if (world.states[roomIndex] === "LIMPIO") {
+                world.states[roomIndex] = "SUCIO";
+            }
+        }
+    }
+}
+
+class Logger {
+    logNewState(state, count) {
+        this.appendToLog(`<br><b><i>Nuevo estado #${count} visitado: ${state}</i></b>`);
+    }
+
+    logAction(location, action, otherRoomState) {
+        this.appendToLog(`<br>Ubicación: ${location} , Acción: ${action} , Otro Estado de la habitación: ${otherRoomState}`);
+    }
+
+    logCompletion() {
+        this.appendToLog("<br><b><i>Todos los estados han sido Visitados!</i></b>");
+    }
+
+    logCleaningComplete() {
+        this.appendToLog("<br><b><i>Limpieza Completada!</i></b>");
+    }
+
+    appendToLog(message) {
+        document.getElementById("log").innerHTML += message;
+    }
+}
+
+class Simulation {
+    constructor() {
+        this.world = new VacuumWorld();
+        this.agent = new VacuumAgent();
+    }
+
+    run() {
+        this.world.registerState();
+
+        const location = this.world.states[0];
+        const currentState = this.world.getCurrentRoomState();
+        const action = this.agent.determineAction(location, currentState);
+
+        this.world.logger.logAction(
+            location, 
+            action, 
+            this.world.getOtherRoomState()
+        );
+
+        this.agent.executeAction(action, this.world);
+
+        if (this.world.visitedStates.size === this.world.TOTAL_STATES) {
+            this.world.logger.logCompletion();
+            
+            if (!this.world.isComplete()) {
+                setTimeout(() => this.run(), 2000);
+            } else {
+                this.world.logger.logCleaningComplete();
+            }
+        } else {
+            setTimeout(() => this.run(), 2000);
+        }
+    }
+}
+
+// Iniciar la simulación
+const simulation = new Simulation();
+simulation.run();
